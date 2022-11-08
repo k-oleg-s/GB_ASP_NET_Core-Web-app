@@ -7,10 +7,10 @@ using System.Text.Json;
 
 namespace Lesson01;
 
-public  class Blog
+public class Blog
 {
     static readonly HttpClient client = new HttpClient();
-
+    static List<string> list = new List<string>();
     public class Item
     {
         public int userId { get; set; }
@@ -19,70 +19,59 @@ public  class Blog
         public string body { get; set; }
     }
 
-    public void Test2()
+    public async Task GetPosts()
     {
-        string jsontxt =
- @"{
- ""userId"": 1 
-}
-";
+        string httppath = "https://jsonplaceholder.typicode.com/posts/";
+        var tasks = new List<Task<HttpResponseMessage>>();
 
-        //            @"{
-        //  ""Date"": ""2019-08-01T00:00:00-07:00"",
-        //  ""TemperatureCelsius"": 25,
-        //  ""Summary"": ""Hot"",
-        //  ""DatesAvailable"": [
-        //    ""2019-08-01T00:00:00-07:00"",
-        //    ""2019-08-02T00:00:00-07:00""
-        //  ],
-        //  ""TemperatureRanges"": {
-        //                ""Cold"": {
-        //                    ""High"": 20,
-        //      ""Low"": -10
-        //                },
-        //    ""Hot"": {
-        //                    ""High"": 60,
-        //      ""Low"": 20
-        //    }
-        //            },
-        //  ""SummaryWords"": [
-        //    ""Cool"",
-        //    ""Windy"",
-        //    ""Humid""
-        //  ]
-        //}
-        //";
-
-        //@"{  "userId": 1,  "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit" }";
-
-        Item? item = JsonSerializer.Deserialize<Item>(jsontxt);
-
-        Console.WriteLine($" {item.userId} {item.id} {item.title} {item.body} ");
-
-    }
-    
-    public  async Task Test1()
-    {
-        // Call asynchronous network methods in a try/catch block to handle exceptions.
         try
         {
-            HttpResponseMessage response = await client.GetAsync("https://jsonplaceholder.typicode.com/posts/1");
-            response.EnsureSuccessStatusCode();
-            string responseBody = await response.Content.ReadAsStringAsync();
-            // Above three lines can be replaced with new helper method below
-            // string responseBody = await client.GetStringAsync(uri);
+            HttpResponseMessage response;
+            for (int i = 4; i < 14; i++)
+            {
+                tasks.Add(client.GetAsync(httppath + i.ToString()));
+            }
 
-            Console.WriteLine(responseBody);
+            await Task.WhenAll(tasks);
 
-            Item? item = JsonSerializer.Deserialize<Item>(responseBody);
+            foreach(Task<HttpResponseMessage> task in tasks)
+            {
+                response = task.Result;
+                response.EnsureSuccessStatusCode();
+                string responseBody = await response.Content.ReadAsStringAsync();
+                list.Add(responseBody);
+            }
 
-            Console.WriteLine( $" {item.userId} {item.id} {item.title} {item.body} ");
-
+             WriteToFileAsync();
         }
         catch (HttpRequestException e)
         {
             Console.WriteLine("\nException Caught!");
             Console.WriteLine("Message :{0} ", e.Message);
         }
+    }
+
+    private async Task WriteToFileAsync()
+    {
+        string currentDir;
+        string file = "result.txt";
+        currentDir = Directory.GetCurrentDirectory();
+        
+        StringBuilder stringBuilder = new StringBuilder();
+
+        foreach(string js_itm in list)
+        {
+            Item? item = JsonSerializer.Deserialize<Item>(js_itm);
+            stringBuilder.AppendLine(item.userId.ToString());
+            stringBuilder.AppendLine(item.id.ToString());
+            stringBuilder.AppendLine(item.title);
+            stringBuilder.AppendLine(item.body);
+            stringBuilder.AppendLine("");
+        }
+
+        using (StreamWriter writer = new StreamWriter(Path.Combine(currentDir, file), false))
+        {
+            await writer.WriteLineAsync(stringBuilder.ToString());
+        } 
     }
 }
